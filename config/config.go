@@ -209,12 +209,14 @@ type Listener struct {
 		NonTLS  bool `sconf:"optional" sconf-doc:"If set, plain HTTP instead of HTTPS is spoken on the configured port. Can be useful when the mta-sts domain is reverse proxied."`
 	} `sconf:"optional" sconf-doc:"Serve MTA-STS policies describing SMTP TLS requirements. Requires a TLS config."`
 	WebserverHTTP struct {
-		Enabled bool
-		Port    int `sconf:"optional" sconf-doc:"Port for plain HTTP (non-TLS) webserver."`
+		Enabled           bool
+		Port              int  `sconf:"optional" sconf-doc:"Port for plain HTTP (non-TLS) webserver."`
+		RateLimitDisabled bool `sconf:"optional" sconf-doc:"Disable rate limiting for all requests to this port."`
 	} `sconf:"optional" sconf-doc:"All configured WebHandlers will serve on an enabled listener."`
 	WebserverHTTPS struct {
-		Enabled bool
-		Port    int `sconf:"optional" sconf-doc:"Port for HTTPS webserver."`
+		Enabled           bool
+		Port              int  `sconf:"optional" sconf-doc:"Port for HTTPS webserver."`
+		RateLimitDisabled bool `sconf:"optional" sconf-doc:"Disable rate limiting for all requests to this port."`
 	} `sconf:"optional" sconf-doc:"All configured WebHandlers will serve on an enabled listener. Either ACME must be configured, or for each WebHandler domain a TLS certificate must be configured."`
 }
 
@@ -235,6 +237,7 @@ type Transport struct {
 	SMTP        *TransportSMTP   `sconf:"optional" sconf-doc:"SMTP over a plain connection (possibly with STARTTLS), typically for old-fashioned unauthenticated relaying to a remote queue."`
 	Socks       *TransportSocks  `sconf:"optional" sconf-doc:"Like regular direct delivery, but makes outgoing connections through a SOCKS proxy."`
 	Direct      *TransportDirect `sconf:"optional" sconf-doc:"Like regular direct delivery, but allows to tweak outgoing connections."`
+	Fail        *TransportFail   `sconf:"optional" sconf-doc:"Immediately fails the delivery attempt."`
 }
 
 // TransportSMTP delivers messages by "submission" (SMTP, typically
@@ -276,6 +279,16 @@ type TransportDirect struct {
 	DisableIPv6 bool `sconf:"optional" sconf-doc:"If set, outgoing SMTP connections will *NOT* use IPv6 addresses to connect to remote SMTP servers."`
 
 	IPFamily string `sconf:"-" json:"-"`
+}
+
+// TransportFail is a transport that fails all delivery attempts.
+type TransportFail struct {
+	SMTPCode    int    `sconf:"optional" sconf-doc:"SMTP error code and optional enhanced error code to use for the failure. If empty, 554 is used (transaction failed)."`
+	SMTPMessage string `sconf:"optional" sconf-doc:"Message to include for the rejection. It will be shown in the DSN."`
+
+	// Effective values to use, set when parsing.
+	Code    int    `sconf:"-"`
+	Message string `sconf:"-"`
 }
 
 type Domain struct {
@@ -531,6 +544,7 @@ type TLS struct {
 	KeyCerts            []KeyCert `sconf:"optional" sconf-doc:"Keys and certificates to use for this listener. The files are opened by the privileged root process and passed to the unprivileged mox process, so no special permissions are required on the files. If the private key will not be replaced when refreshing certificates, also consider adding the private key to HostPrivateKeyFiles and configuring DANE TLSA DNS records."`
 	MinVersion          string    `sconf:"optional" sconf-doc:"Minimum TLS version. Default: TLSv1.2."`
 	HostPrivateKeyFiles []string  `sconf:"optional" sconf-doc:"Private keys used for ACME certificates. Specified explicitly so DANE TLSA DNS records can be generated, even before the certificates are requested. DANE is a mechanism to authenticate remote TLS certificates based on a public key or certificate specified in DNS, protected with DNSSEC. DANE is opportunistic and attempted when delivering SMTP with STARTTLS. The private key files must be in PEM format. PKCS8 is recommended, but PKCS1 and EC private keys are recognized as well. Only RSA 2048 bit and ECDSA P-256 keys are currently used. The first of each is used when requesting new certificates through ACME."`
+	ClientAuthDisabled  bool      `sconf:"optional" sconf-doc:"Disable TLS client authentication with certificates/keys, preventing the TLS server from requesting a TLS certificate from clients. Useful for working around clients that don't handle TLS client authentication well."`
 
 	Config                   *tls.Config     `sconf:"-" json:"-"` // TLS config for non-ACME-verification connections, i.e. SMTP and IMAP, and not port 443. Connections without SNI will use a certificate for the hostname of the listener, connections with an SNI hostname that isn't allowed will be rejected.
 	ConfigFallback           *tls.Config     `sconf:"-" json:"-"` // Like Config, but uses the certificate for the listener hostname when the requested SNI hostname is not allowed, instead of causing the connection to fail.

@@ -217,6 +217,11 @@ See https://pkg.go.dev/github.com/mjl-/sconf for details.
 				HostPrivateKeyFiles:
 					-
 
+				# Disable TLS client authentication with certificates/keys, preventing the TLS
+				# server from requesting a TLS certificate from clients. Useful for working around
+				# clients that don't handle TLS client authentication well. (optional)
+				ClientAuthDisabled: false
+
 			# Maximum size in bytes for incoming and outgoing messages. Default is 100MB.
 			# (optional)
 			SMTPMaxMessageSize: 0
@@ -514,6 +519,9 @@ See https://pkg.go.dev/github.com/mjl-/sconf for details.
 				# Port for plain HTTP (non-TLS) webserver. (optional)
 				Port: 0
 
+				# Disable rate limiting for all requests to this port. (optional)
+				RateLimitDisabled: false
+
 			# All configured WebHandlers will serve on an enabled listener. Either ACME must
 			# be configured, or for each WebHandler domain a TLS certificate must be
 			# configured. (optional)
@@ -522,6 +530,9 @@ See https://pkg.go.dev/github.com/mjl-/sconf for details.
 
 				# Port for HTTPS webserver. (optional)
 				Port: 0
+
+				# Disable rate limiting for all requests to this port. (optional)
+				RateLimitDisabled: false
 
 	# Destination for emails delivered to postmaster addresses: a plain 'postmaster'
 	# without domain, 'postmaster@<hostname>' (also for each listener with SMTP
@@ -724,6 +735,16 @@ See https://pkg.go.dev/github.com/mjl-/sconf for details.
 				# If set, outgoing SMTP connections will *NOT* use IPv6 addresses to connect to
 				# remote SMTP servers. (optional)
 				DisableIPv6: false
+
+			# Immediately fails the delivery attempt. (optional)
+			Fail:
+
+				# SMTP error code and optional enhanced error code to use for the failure. If
+				# empty, 554 is used (transaction failed). (optional)
+				SMTPCode: 0
+
+				# Message to include for the rejection. It will be shown in the DSN. (optional)
+				SMTPMessage:
 
 	# Do not send DMARC reports (aggregate only). By default, aggregate reports on
 	# DMARC evaluations are sent to domains if their DMARC policy requests them.
